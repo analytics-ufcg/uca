@@ -1,0 +1,89 @@
+---
+title: "User itineraries inefficiency analysis"
+output: html_notebook
+---
+
+
+```{r, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+
+all_itineraries <- read_csv("data/all_itineraries_metrics.csv",
+                            col_types = cols(
+                              .default = col_double(),
+                              date = col_date(format = ""),
+                              user_trip_id = col_character(),
+                              itinerary_id = col_integer(),
+                              planned_start_time = col_datetime(format = ""),
+                              actual_start_time = col_datetime(format = ""),
+                              exec_start_time = col_datetime(format = ""),
+                              trip_length_bucket = col_character(),
+                              hour_of_day = col_integer(),
+                              period_of_day = col_character(),
+                              weekday = col_character(),
+                              day_type = col_character(),
+                              itinerary_id_fo = col_integer(),
+                              itinerary_id_fs = col_integer()
+                            )) %>%
+  filter(date != ymd("2017-05-10"))
+
+user_itineraries_complete <- all_itineraries %>%
+  group_by(date, user_trip_id) %>%
+  slice(1)
+
+user_itineraries_with_plans <- all_itineraries %>%
+  filter(itinerary_id == "0", !is.na(planned_duration_mins))
+
+```
+
+### Ditribuição de $I_o$
+
+```{r}
+summary(user_itineraries_complete$io)
+
+ggplot(data = user_itineraries_complete, aes(x = io)) +
+  geom_histogram()
+```
+
+### Distribuição de $I_s$
+
+```{r}
+summary(user_itineraries_complete$is)
+
+ggplot(data = user_itineraries_complete, aes(x = is)) +
+  geom_histogram()
+```
+
+### Distribuição de $I_c$
+
+```{r}
+summary(user_itineraries_with_plans$ic)
+
+ggplot(data = user_itineraries_with_plans, aes(x = ic)) +
+  geom_histogram()
+```
+
+## Some analysis
+
+
+We can use $I_c$ as grouping variable. When it values is greter than 0 it means that the user choice was not optimal. If it's 0 we might assume that the user choice was optimal given all sources of information normaly available. Therefore, if $I_c$ is 0 and $I_o$ isn't, one could infer that the inefficiency of the user observed itinerary happend because of some system inefficiency.
+
+We can see that everytime a user chooses the best planned itinerary, user observerd itinerary is the fastest. This represents the normal functioning of the system. User chooses based on scheduled times, the system perfoms as scheduled leading to a fulfilled user choice. There isn't much to look in this case.
+
+```{r}
+user_choose_best <- user_itineraries_with_plans %>%
+  filter(ic == 0)
+
+ggplot(data = user_choose_best %>% filter(io == 0) , aes(x = is)) +
+  geom_histogram()
+```
+
+The other situation is when user chooses the best planned itinerary but because of system inefficiency, the user observed itinerary is not the fastest one (room for improvment). Even when Ic and Io 
+
+```{r}
+ggplot(data = user_choose_not_best %>% filter(io != 0), aes(x = io)) +
+  geom_histogram()
+
+ggplot(data = user_choose_not_best %>% filter(io != 0), aes(x = is)) +
+  geom_histogram()
+```
