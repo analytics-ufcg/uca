@@ -86,6 +86,10 @@ user_choose_best <- user_itineraries_with_plans %>%
 
 user_choose_best_go_wrong <- user_choose_best %>% 
   filter(io != 1)
+
+user_choose_best.long <- user_choose_best %>% gather("metric", "value", io:is)
+user_choose_best_go_wrong.long <- user_choose_best_go_wrong %>% gather("metric", "value", io:is)
+
 ```
 ```{r}
 ggplot(data = user_choose_best %>% filter(io == 1) , aes(x = is)) +
@@ -99,18 +103,42 @@ summary(user_choose_best_go_wrong$is)
 ```
 
 ```{r}
-is_by_bucket <- ggplot(data = user_choose_best_go_wrong, aes(x = trip_length_bucket, y = is, fill="#fc8d62")) +
+is_by_bucket <- ggplot(data = user_choose_best_go_wrong, aes(x = trip_length_bucket, y = io, fill="#fc8d62")) +
   stat_summary(fun.data=bp.vals, geom="boxplot") +
   scale_y_log10(breaks = 1:5) +
   coord_flip() +
   xlab("Trip length (minutes)") +
-  ylab("System ineffciency (Is)") + 
+  ylab("User choice inefficiency") + 
   guides(fill=FALSE) +
   theme_bw()
 
 plot(is_by_bucket)
 ```
 ```{r}
+is_by_day <- ggplot(data = user_choose_best_go_wrong, aes(x = day_type, y = io, fill="#fc8d62")) +
+  stat_summary(fun.data=bp.vals, geom="boxplot") +
+  scale_y_log10(breaks = 1:5) +
+  coord_flip() +
+  xlab("Day type") +
+  ylab("User choice inefficiency") + 
+  guides(fill=FALSE) +
+  theme_bw()
+
+plot(is_by_day)
+```
+
+```{r}
+
+ggplot(data = user_choose_best_go_wrong.long, aes(x = trip_length_bucket, y = value, fill="#fc8d62")) +
+  stat_summary(fun.data=bp.vals, geom="boxplot") +
+  scale_y_log10(breaks = 1:5) +
+  coord_flip() +
+  facet_grid(~metric) +
+  xlab("Trip length (minutes)") +
+  ylab("Ineffciency") + 
+  guides(fill=FALSE) +
+  theme_bw()
+
 is_by_hour <- ggplot(data = user_choose_best_go_wrong, aes(x = factor(hour_of_day), y = is)) +
   stat_summary(fun.data=bp.vals, geom="boxplot") +
   scale_y_log10(breaks = 1:5)
@@ -146,7 +174,7 @@ user_choose_not_best_go_right.long <- user_choose_not_best_go_right %>% gather("
 ```
 ```{r}
 
-ggplot(data = user_choose_not_best.long, aes(x = trip_length_bucket, y = value, fill="#fc8d62")) +
+is_io_by_bucket_ic1 <- ggplot(data = user_choose_not_best.long, aes(x = trip_length_bucket, y = value, fill="#fc8d62")) +
   stat_summary(fun.data=bp.vals, geom="boxplot") +
   scale_y_log10(breaks = 1:5) +
   coord_flip() +
@@ -206,8 +234,11 @@ ggplot(data = user_choose_not_best_go_right, aes(x = period_of_day, y = is, fill
 
 ```
 ```{r}
-ggplot(data = user_choose_not_best, aes(x = is, y = io)) +
-  geom_point()
+sp_is_io <- ggplot(data = user_choose_not_best, aes(x = is, y = io)) +
+  geom_point() +
+  scale_x_log10(breaks = 0:5, name = "log(is)") +
+  scale_y_log10(breaks = 0:5, name = "log(io)")
+sp_is_io
 
 ggplot(data = user_choose_not_best_go_right, aes(x = is, y = io)) +
   geom_point()
