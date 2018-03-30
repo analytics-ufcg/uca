@@ -58,15 +58,15 @@ all_itineraries_meta <- all_itineraries_filtered %>%
   left_join(all_fs, by = c("date","user_trip_id"), suffix = c("", "_fs"))
 
 all_itineraries_metrics <- all_itineraries_meta %>%
-  mutate(io = (exec_duration_mins - actual_duration_mins_fo)/exec_duration_mins,
-         is = (actual_duration_mins_fs - actual_duration_mins_fo)/actual_duration_mins_fo,
+  mutate(io = exec_duration_mins/actual_duration_mins_fo,
+         is = actual_duration_mins_fs/actual_duration_mins_fo,
          ic = ifelse(itinerary_id == "0",
                      (planned_duration_mins - planned_duration_mins_fs)/planned_duration_mins,
                      NA)) %>%
   select(date:day_type, itinerary_id_fo, planned_duration_mins_fo, actual_duration_mins_fo, itinerary_id_fs, planned_duration_mins_fs, actual_duration_mins_fs, io:ic)
 
 
-write_csv(all_itineraries_metrics, "data/all_itineraries_metrics.csv")
+write_csv(all_itineraries_metrics, "data/all_itineraries_metrics-v2.csv")
 
 
 
