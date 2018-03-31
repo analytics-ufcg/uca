@@ -1,0 +1,192 @@
+---
+title: "Paper stories"
+output: html_notebook
+---
+
+```{r, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(lubridate)
+
+theme_set(theme_bw())
+
+all_itineraries <- read_csv("data/all_itineraries_metrics-v2.csv",
+                            col_types = cols(
+                              .default = col_double(),
+                              date = col_date(format = ""),
+                              user_trip_id = col_character(),
+                              itinerary_id = col_integer(),
+                              planned_start_time = col_datetime(format = ""),
+                              actual_start_time = col_datetime(format = ""),
+                              exec_start_time = col_datetime(format = ""),
+                              trip_length_bucket = col_character(),
+                              hour_of_day = col_integer(),
+                              period_of_day = col_character(),
+                              weekday = col_character(),
+                              day_type = col_character(),
+                              itinerary_id_fo = col_integer(),
+                              itinerary_id_fs = col_integer()
+                            )) %>%
+  filter(date != ymd("2017-05-10")) %>%
+    mutate(period_of_day = factor(
+        period_of_day,
+        ordered = TRUE,
+        levels = c(
+        "early_morning",
+        "morning",
+        "midday",
+        "afternoon",
+        "evening",
+        "night"
+        )
+        ))
+        
+user_itineraries_complete <- all_itineraries %>%
+    filter(trip_length_bucket != "50+") %>% 
+    group_by(date, user_trip_id) %>%
+    arrange(itinerary_id) %>% 
+    slice(1)
+
+user_itineraries_with_plans <- all_itineraries %>%
+  filter(itinerary_id == "0", !is.na(planned_duration_mins))
+
+```
+
+```{r}
+# Return the desired percentiles plus the geometric mean
+bp.vals <- function(x, probs=c(.05, 0.25, 0.5, 0.75, .95), width=0.8) {
+  r <- quantile(x, probs=probs , na.rm=TRUE)
+  r <- c(r, width)
+  names(r) <- c("ymin", "lower", "middle", "upper", "ymax", "width")
+  r
+}
+```
+
+## $I_o$ for all itineraries
+
+
+```{r}
+user_itineraries_complete %>% 
+    group_by(trip_length_bucket) %>% 
+    summarise(median(io), median(is), sum(io == 1) / n(), sum(is == 1) / n())
+```
+
+
+```{r}
+ggplot(data = user_itineraries_complete, 
+       aes(x = trip_length_bucket, 
+           y = io)) +
+    stat_summary(fun.data = bp.vals, geom = "boxplot", fill ="#fc8d62") +
+    scale_y_log10(breaks = c(1:5)) +
+    coord_flip() +
+    xlab(expression(paste("d"[o], "(u) in mins"))) +
+    ylab(expression(paste("User choice inefficiency (i"[o], ")"))) +
+    guides(fill = FALSE)
+ggsave("io-for-all.pdf", width = 5, height = 2.2)
+```
+
+Overall, longer itineraries tend to incurr in higher inefficiencies. For 20-30min itineraries, more than half have no inefficiency. For 40-50 min itineraries, half of the itineraries have an inefficiency of 1.6 or higher. For a 45 mins itinerary, $i_o = 1.6$ implies there was an 28-min alterantive.
+
+## $i_s$ for all $i_c$
+
+```{r}
+ggplot(data = user_itineraries_complete, 
+       aes(x = trip_length_bucket, 
+           y = is)) +
+    stat_summary(fun.data = bp.vals, geom = "boxplot", fill ="#7DBBC3") +
+    scale_y_log10(breaks = c(1, 1.2, 1.4)) +
+    coord_flip() +
+    xlab(expression(paste("d"[o], "(u) in mins"))) +
+    ylab(expression(paste("System operation inefficiency (i"[s], ")"))) +
+    guides(fill = FALSE)
+ggsave("is-for-all.pdf", width = 5, height = 2.2)
+
+```
+
+Contrary to what is experienced by user, system efficiency is concentrated on shorter itineraries. For 40-50-min itineraries, over 75\% of all itineraries have no inefficiency.
+
+It seems that most inefficiency in longer itineraries experienced by users is not due to system operation inefficiency. 
+
+## Considering $i_c$
+
+How often do users choose the best itinerary according to the schedule? 
+
+
+```{r}
+user_itineraries_complete %>% 
+    group_by(trip_length_bucket) %>% 
+    select(ic) %>% 
+    summarise(best = sum(ic == 0, na.rm = T) / sum(!is.na(ic)), 
+              n = sum(!is.na(ic))) 
+
+```
+
+Most of the time we can identify which trip from the schedule a user took, the user took the best according to the schedule. This happens 85-89% of the itineraries, depending on their duration.
+
+
+### Did the schedule happen faithfully when the user followed it?
+
+```{r}
+user_itineraries_complete %>% 
+    group_by(trip_length_bucket) %>% 
+    filter(!is.na(ic), ic == 0) %>% 
+    ggplot(aes(x = trip_length_bucket, 
+               y = is)) +
+    stat_summary(fun.data = bp.vals, geom = "boxplot", fill ="#7DBBC3") +
+    # scale_y_log10() +
+    coord_flip() +
+    xlab(expression(paste("d"[o], "(u) in mins"))) +
+    ylab(expression(paste("System operation inefficiency (i"[s], ")"))) +
+    guides(fill = FALSE)
+     
+user_itineraries_complete %>% 
+    group_by(trip_length_bucket) %>% 
+    filter(!is.na(ic), ic == 0) %>% 
+    ggplot(aes(x = trip_length_bucket, 
+               y = io)) +
+    stat_summary(fun.data = bp.vals, geom = "boxplot", fill ="#fc8d62") +
+    scale_y_log10(breaks = c(1, 1.1, 1.2, 1.3)) +
+    coord_flip() +
+    xlab(expression(paste("d"[o], "(u) in mins"))) +
+    ylab(expression(paste("User choice inefficiency (i"[o], ")"))) +
+    guides(fill = FALSE)
+ggsave("io-for-ic_eq_zero.pdf", width = 5, height = 2.2)
+
+```
+
+Following the schedule in general leads users to a low inefficiency ($i_o = 1$ for 66-80% of the itineraries) longer itineraries tend to have have lower inefficinecy.
+
+```{r}
+user_itineraries_complete %>% 
+    group_by(trip_length_bucket) %>% 
+    filter(!is.na(ic), ic == 0) %>% 
+    summarise(went_bad = sum(io == 1) / n())
+```
+
+
+### $i_c > 0$
+
+*$i_c > 0 $*
+
+```{r}
+user_itineraries_complete %>% 
+    group_by(trip_length_bucket) %>% 
+    filter(!is.na(ic), ic > 0) %>% 
+    mutate(situation = case_when(
+        is > 1 & io == 1 ~ "Deviation was better",
+        is == 1 & io > 1 ~ "Schedule was better", 
+        TRUE ~ "Compound"
+    ) %>% factor(levels = c("Schedule was better", "Compound", "Deviation was better"), ordered = T)
+    ) %>% 
+    ggplot(aes(x = trip_length_bucket, fill = situation)) +
+    geom_bar(position = "fill") + 
+    scale_fill_brewer(type = "qual") + 
+    labs(x = expression(paste("d"[o], "(u) in mins")), 
+         y = "Proportion") + 
+    theme(legend.position = "bottom", legend.title = element_blank()) + 
+    coord_flip()
+ggsave("situations-ic_gt_zero.pdf", width = 5, height = 2.5)
+
+```
+
+When the user deviates from the itinerary recommended by the schedule, the user outperforms the choice proposed by the schedule a significant proportion of the time. 
+
