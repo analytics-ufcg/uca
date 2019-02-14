@@ -188,5 +188,22 @@ ggsave("situations-ic_gt_zero.pdf", width = 5, height = 2.5)
 
 ```
 
+```{r}
+user_itineraries_complete %>% 
+    group_by(trip_length_bucket) %>% 
+    filter(!is.na(ic), ic > 0) %>% 
+    mutate(situation = case_when(
+        is > 1 & io == 1 ~ "Deviation was better",
+        is == 1 & io > 1 ~ "Schedule was better", 
+        TRUE ~ "Compound"
+    )) %>% 
+    count(trip_length_bucket, situation) %>%
+    ungroup() %>% 
+    group_by(trip_length_bucket) %>% 
+    mutate(n = n / sum(n)) %>% 
+    View
+```
+
+
 When the user deviates from the itinerary recommended by the schedule, the user outperforms the choice proposed by the schedule a significant proportion of the time. 
 
